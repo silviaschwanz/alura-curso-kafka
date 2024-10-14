@@ -1,0 +1,101 @@
+services:
+  db:
+    image: postgres:15
+    container_name: postgres_curso_kafka
+    env_file: .env
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 2048M
+    ports:
+      - "5437:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - curso-kafka
+
+  kafka-controller:
+    image: apache/kafka:latest
+    hostname: kafka-controller
+    container_name: kafka-controller
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: controller, broker
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENERS: CONTROLLER://0.0.0.0:9093,PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-controller:9092
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-controller:9093
+      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - curso-kafka
+
+  kafka-broker-1:
+    image: apache/kafka:latest
+    hostname: kafka-broker-1
+    container_name: kafka-broker-1
+    environment:
+      KAFKA_NODE_ID: 2
+      KAFKA_PROCESS_ROLES: broker
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-broker-1:9094
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-controller:9093
+      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+    ports:
+      - "9094:9094"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - curso-kafka
+
+  kafka-broker-2:
+    image: apache/kafka:latest
+    hostname: kafka-broker-2
+    container_name: kafka-broker-2
+    environment:
+      KAFKA_NODE_ID: 3
+      KAFKA_PROCESS_ROLES: broker
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9095
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-broker-2:9095
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-controller:9093
+      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+    ports:
+      - "9095:9095"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - curso-kafka
+
+  kafka-ui:
+    container_name: kafka-ui
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - "8088:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: cluster-kafka
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka-controller:9092,kafka-broker-1:9094,kafka-broker-2:9095
+      DYNAMIC_CONFIG_ENABLED: true
+    depends_on:
+      - kafka-controller
+      - kafka-broker-1
+      - kafka-broker-2
+    networks:
+      - curso-kafka
+
+volumes:
+  db_data:
+  kafka_data:
+
+networks:
+  curso-kafka:
+    driver: bridge
